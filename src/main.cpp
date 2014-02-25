@@ -1,10 +1,11 @@
-/** Author: Surth (Luis Galotti Muñoz)
+/** Author: Surth (Luis Galotti Muï¿½oz)
     I've used LTexture class from Lazy Foo's SDL2 tutorial.
     This is my first C++ game using SDL2, and it's a Helicopter type of game (like Flappy Bird)
     If you want to use it, or you want to help me improving it, feel free to write me to: ginogalotti at google dot com.
 */
 
-//TODO: Pantalla principal con texto, pantalla respwn, puntuación, Collision
+//TODO: Comment, clean, optimize. 
+// Points with boolean
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -20,8 +21,11 @@
 const int SCREEN_WIDTH = 1600;
 const int SCREEN_HEIGHT = 900;
 const int MAXIMUN_FRAMES = 4;
-const int MAX_TIME_PIPE = 90;
+const int MAX_TIME_PIPE = 1600 / 18;
 const int FREE_SPACE = 185;
+const int CHARACTER_X_POS = SCREEN_WIDTH/4;
+const int PIPE_MOVEMENT = 1;
+const int CHARACTER_MOVEMENT = 5;
 
 //Starts up SDL and creates window
 bool init();
@@ -51,9 +55,12 @@ SDL_Renderer* gRenderer = NULL;
 TTF_Font *gFont = NULL;
 SDL_Color textColor;
 
+//This way we handle animation / sprited textures
 SDL_Rect gSpriteClips[4];
 LTexture gSpriteSheetTexture;
 LTexture gSpritedMonigote;
+
+//This way we manage the starting and restarting text and the point text
 LTexture gTextTextureStart;
 LTexture gTextTexturePoints;
 
@@ -62,7 +69,6 @@ LTexture gFooTexture;
 LTexture gSunTexture;
 LTexture gFloorTexture;
 LTexture gPipeTexture;
-LTexture gPipes [5][18];
 LTexture gFrameTexture;
 
 //This is going to handle the movement
@@ -88,6 +94,15 @@ int points;
 //This is how we handle the current position of each pipe
 int pipePosition [7];
 int freePosition [7];
+bool countPoint [7];
+
+struct pipe{
+	int xPosition;
+	int freeSpotPosition;
+	bool pointCounted;
+}
+
+pipe pipes [7];
 
 bool init()
 {
@@ -300,16 +315,16 @@ void restart (){
     totalPipe = 1;
 
     //This is how we handle the current position of each pipe
-    pipePosition[0] = SCREEN_WIDTH;
-    freePosition[0] = (rand() % 4) + 1;
-
-}
+    pipes[0].xPosition = SCREEN_WIDTH;
+    pipes[0].freeSpotPosition = (rand() % 4) + 1;
+    pipes[0].pointCounted = false;
+    }
 
 //TODO ARREGLAR LA PUTA COLLISION
 bool collisionWithCharacter(int posXObj, int posYObj, int widthObj, int heightObj){
     bool collision = false;
 
-    if (posXObj <= (SCREEN_WIDTH/4)+60 and posXObj + widthObj >= SCREEN_WIDTH/4){
+    if (posXObj <= CHARACTER_X_POS+60 and posXObj + widthObj >= CHARACTER_X_POS){
         if (posYObj <= posY + 60 and posYObj + heightObj >= posY ) collision = true;
     }
 
@@ -393,12 +408,12 @@ int main( int argc, char* args[] )
                     //The max pipes that we are going to allow is 7; so we don't use too much memory
                     if (timingPipe == 0){
                         timingPipe = MAX_TIME_PIPE;
-                        pipePosition[nextPipe] = SCREEN_WIDTH;
-                        freePosition[nextPipe] = (rand() % 4) + 1;
-                        nextPipe++;
+                        pipes[nextPipe].xPosition = SCREEN_WIDTH;
+                        pipes[nextPipe].freeSpotPosition = (rand() % 4) + 1;
+                        pipes[nextPipe].pointCounted = false;
+                        nextPipe = (nextPipe  + 1)% 7;
                         if (totalPipe < 7) totalPipe++;
-                        if (nextPipe % 7 == 0) nextPipe = 0;
-                    }
+                        }
 
                     --timingPipe;
 
@@ -408,10 +423,11 @@ int main( int argc, char* args[] )
                     //Now we draw all the pipes.
                     for (int i = 0; i < totalPipe; i++){
                         int yPos = 0;
-                        int free = freePosition[i];
-                        //Here we are going to count the points. And the pixels are moving 9 each time so in this way we're going to count the points
-                        if (pipePosition[i] > ((SCREEN_WIDTH/4) + 54) and pipePosition[i] <= ((SCREEN_WIDTH/4) + 63)){
+                        int free = pipes[i].freeSpotPosition;
+                        //Here we are going to count the points. When the pipe past the character position, we flag it as counted and increment the points
+                        if (pipes[i].yPosition < (CHARACTER_X_POS) and !pipes[i].pointCounted){
                             points++;
+                            pipes[i].pointCounted = true;
                             std::stringstream ss;
                             ss << points;
                             if( !gTextTexturePoints.loadFromRenderedText( "Points: " + ss.str(), textColor, gFont ,gRenderer ) )
@@ -423,10 +439,10 @@ int main( int argc, char* args[] )
                         for (int j = 0; j < 10; j++){
                                     if (j == free) yPos += FREE_SPACE;
                                     else {
-                                        pipePosition[i] = pipePosition[i] - 1;
-                                        if (collisionWithCharacter(pipePosition[i], yPos , 75, 100)) pause = true;
+                                        pipes[i].xPosition = pipes[i].yPosition - PIPE_MOVEMENT;
+                                        if (collisionWithCharacter(pipes[i].xPosition, yPos , 75, 100)) pause = true;
 
-                                        gPipeTexture.render(gRenderer,pipePosition[i],yPos);
+                                        gPipeTexture.render(gRenderer,pipes[i].xPosition,yPos);
                                         yPos += gPipeTexture.getHeight();
                                         }}}
 
@@ -436,7 +452,7 @@ int main( int argc, char* args[] )
 
                     //We select the frame of the egg that we're going to paint
                     SDL_Rect* currentClip = &gSpriteClips[frame / 4];
-                    gSpritedMonigote.render(gRenderer,SCREEN_WIDTH/4, posY , currentClip, degrees,NULL);
+                    gSpritedMonigote.render(gRenderer,CHARACTER_X_POS, posY , currentClip, degrees,NULL);
 
                     //This case is when our egg if falling. We accelerate until reaching the maximum speed (15px), we rotate the animation and we set the position
                     if (flying < 0 ){
@@ -461,8 +477,7 @@ int main( int argc, char* args[] )
                         degrees = -45;
                         --flying;
                         ++frame;
-                        int movement = 5;
-                        if (posY > movement) posY -= movement;
+                        if (posY > movement) posY -= CHARACTER_MOVEMENT;
                         if (frame/4 >= MAXIMUN_FRAMES){
                             frame = 0;}}
                     else
