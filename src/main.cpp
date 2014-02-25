@@ -92,9 +92,6 @@ int totalPipe;
 int points;
 
 //This is how we handle the current position of each pipe
-int pipePosition [7];
-int freePosition [7];
-bool countPoint [7];
 
 struct pipe{
 	int xPosition;
@@ -102,7 +99,7 @@ struct pipe{
 	bool pointCounted;
 }
 
-pipe pipes [7];
+pipe pipes[7];
 
 bool init()
 {
@@ -439,7 +436,7 @@ int main( int argc, char* args[] )
                         for (int j = 0; j < 10; j++){
                                     if (j == free) yPos += FREE_SPACE;
                                     else {
-                                        pipes[i].xPosition = pipes[i].yPosition - PIPE_MOVEMENT;
+                                        pipes[i].xPosition = pipes[i].xPosition - PIPE_MOVEMENT;
                                         if (collisionWithCharacter(pipes[i].xPosition, yPos , 75, 100)) pause = true;
 
                                         gPipeTexture.render(gRenderer,pipes[i].xPosition,yPos);
