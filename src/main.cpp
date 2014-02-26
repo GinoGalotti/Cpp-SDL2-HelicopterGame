@@ -1,11 +1,8 @@
-/** Author: Surth (Luis Galotti Mu�oz)
+/** Author: Surth (Luis Galotti Muñoz)
     I've used LTexture class from Lazy Foo's SDL2 tutorial.
     This is my first C++ game using SDL2, and it's a Helicopter type of game (like Flappy Bird)
     If you want to use it, or you want to help me improving it, feel free to write me to: ginogalotti at google dot com.
 */
-
-//TODO: Comment, clean, optimize. 
-// Points with boolean
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -21,9 +18,9 @@
 const int SCREEN_WIDTH = 1600;
 const int SCREEN_HEIGHT = 900;
 const int MAXIMUN_FRAMES = 4;
-const int MAX_TIME_PIPE = 1600 / 18;
-const int FREE_SPACE = 185;
-const int CHARACTER_X_POS = SCREEN_WIDTH/4;
+const int MAX_TIME_PIPE = SCREEN_WIDTH / 21;
+const int FREE_SPACE = 180;
+const int CHARACTER_X_POS = SCREEN_WIDTH / 4;
 const int PIPE_MOVEMENT = 1;
 const int CHARACTER_MOVEMENT = 5;
 
@@ -92,14 +89,13 @@ int totalPipe;
 int points;
 
 //This is how we handle the current position of each pipe
-
-struct pipe{
+struct Pipe{
 	int xPosition;
 	int freeSpotPosition;
 	bool pointCounted;
-}
+};
 
-pipe pipes[7];
+Pipe pipes[7];
 
 bool init()
 {
@@ -359,8 +355,6 @@ int main( int argc, char* args[] )
             gTextTextureStart.render(gRenderer,SCREEN_WIDTH/2 - gTextTextureStart.getWidth() / 2,SCREEN_HEIGHT/2 - gTextTextureStart.getHeight() / 2);
             SDL_RenderPresent( gRenderer );
 
-
-
 			//Main loop
 			while( !quit )
 			{
@@ -379,13 +373,14 @@ int main( int argc, char* args[] )
                             case SDLK_ESCAPE:
                             quit = true;
                             break;
-
+                            
                             //Our egg is going to fly!!
                             case SDLK_UP:
                             flying = MAXIMUN_FRAMES * 4 * 2;
                             degrees = -45;
                             break;
-
+                            
+                            //Our game is going to start/restart
                             case SDLK_RETURN:
                             if (pause){
                                 pause = !pause;
@@ -422,7 +417,7 @@ int main( int argc, char* args[] )
                         int yPos = 0;
                         int free = pipes[i].freeSpotPosition;
                         //Here we are going to count the points. When the pipe past the character position, we flag it as counted and increment the points
-                        if (pipes[i].yPosition < (CHARACTER_X_POS) and !pipes[i].pointCounted){
+                        if (pipes[i].xPosition < (CHARACTER_X_POS) and !pipes[i].pointCounted){
                             points++;
                             pipes[i].pointCounted = true;
                             std::stringstream ss;
@@ -438,7 +433,6 @@ int main( int argc, char* args[] )
                                     else {
                                         pipes[i].xPosition = pipes[i].xPosition - PIPE_MOVEMENT;
                                         if (collisionWithCharacter(pipes[i].xPosition, yPos , 75, 100)) pause = true;
-
                                         gPipeTexture.render(gRenderer,pipes[i].xPosition,yPos);
                                         yPos += gPipeTexture.getHeight();
                                         }}}
@@ -474,7 +468,7 @@ int main( int argc, char* args[] )
                         degrees = -45;
                         --flying;
                         ++frame;
-                        if (posY > movement) posY -= CHARACTER_MOVEMENT;
+                        if (posY > CHARACTER_MOVEMENT) posY -= CHARACTER_MOVEMENT;
                         if (frame/4 >= MAXIMUN_FRAMES){
                             frame = 0;}}
                     else
@@ -492,12 +486,11 @@ int main( int argc, char* args[] )
                                     gFrameTexture.render(gRenderer, SCREEN_WIDTH/2 - gFrameTexture.getWidth() /2, SCREEN_HEIGHT/2 - gFrameTexture.getHeight() / 2);
                                     gTextTexturePoints.render(gRenderer,SCREEN_WIDTH/2 - gTextTexturePoints.getWidth() /2, SCREEN_HEIGHT/2);}
                     }
-
                     //Update screen
                     SDL_RenderPresent( gRenderer );			}}
 		}
 	}
-
+	
 	//Free resources and close SDL
 	close();
 
