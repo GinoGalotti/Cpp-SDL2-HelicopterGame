@@ -11,33 +11,60 @@
 #include <cstdlib>
 #include <LTexture.h>
 #include <SDL_ttf.h>
+#include <cstlib>
 #include <cmath>
 #include <sstream>
 
 //Screen dimension constants, the frames that we need to do the animation, the time between pipes and the hole space of the pipe in pixels.
 const int SCREEN_WIDTH = 1600;
 const int SCREEN_HEIGHT = 900;
-const int MAXIMUN_FRAMES = 4;
 const int MAX_TIME_PIPE = SCREEN_WIDTH / 21;
 const int FREE_SPACE = 180;
 const int CHARACTER_X_POS = SCREEN_WIDTH / 4;
 const int PIPE_MOVEMENT = 1;
 const int CHARACTER_MOVEMENT = 5;
+const unsigned int NUM_COLORS = 16;
 
-//Starts up SDL and creates window
-bool init();
+const unsigned int NUM_CIRCLES = 5 ;
+const unsigned int INCREMENTAL_RADIUS = (SCREEN_WIDTH > SCREEN_HEIGHT) ? ((3 * SCREEN_HEIGHT / 4)/NUM_CIRCLES) 
+								: ((3 * SCREEN_WIDTH / 4)/NUM_CIRCLES);
+const unsigned int INCREMENTAL_PIES = 2;
 
-//Loads media regardless of the format (png, jpeg, etc.)
-bool loadMedia();
+#define RANDOM_COLOR = rand() % NUM_COLORS
 
-//Frees media and shuts down SDL
-void close();
+struct custColor {
+	Uint8 r;
+	Uint8 g;
+	Uint8 b;
+}
 
-//Restart the game
-void restart ();
-
-//Our hand-made collisionDetector
-bool collisionWithCharacter(int posXObj, int posYObj, int widthObj, int heightObj);
+const cusColor colores[NUM_COLORES] = { { 163, 73, 164 }// Lilac
+                        , {  237, 28, 36 }		// Red
+                        , {  185, 122, 87 }		// LightBrown
+                        , {  255, 242, 0 }		// Yellow
+                        , {  195, 195, 195 }		// LightGrey
+                        , {  181, 230, 29 }		// GreenLime
+                        , {  255, 127, 39 }		// Orange
+                        , {  63, 60, 224 }		// SeaBlue
+                        , {  255, 206, 222 }		// LightPink
+                        , {  64, 0, 64 }		// Purple
+                        , {  255, 0, 255 }		// Fuscia
+                        , {  102, 28, 15 }		// DirtBrown
+                        , {  153, 217, 234 }		// LightBlue
+                        , {  128, 128, 64 }		// MilitaryGreen                       
+                        , {  0, 255, 128 }		// GayLordGreenBlue						
+						};
+						
+strutc custPie{
+	double degrees; 	//Starting degree of the pie
+	unsigned int color;	//An index for the cusColor array
+}
+						
+struct custCircle {
+	unsigned int radius;
+	unsigned int numPies;	//Number of slots that the circle will have
+	custPie[] pies;		//An array with all the pies inside the circle
+}
 
 //Loads individual image as texture
 SDL_Texture* loadTexture( std::string path );
@@ -52,50 +79,38 @@ SDL_Renderer* gRenderer = NULL;
 TTF_Font *gFont = NULL;
 SDL_Color textColor;
 
-//This way we handle animation / sprited textures
-SDL_Rect gSpriteClips[4];
-LTexture gSpriteSheetTexture;
-LTexture gSpritedMonigote;
-
 //This way we manage the starting and restarting text and the point text
 LTexture gTextTextureStart;
 LTexture gTextTexturePoints;
 
-//SDL_Texture* gTexture = NULL;
-LTexture gFooTexture;
-LTexture gSunTexture;
-LTexture gFloorTexture;
-LTexture gPipeTexture;
-LTexture gFrameTexture;
+//This way we are going to save our circles
+custCircle* circles;
 
-//This is going to handle the movement
-int frame;
+//This way we are going to save our circles make the feel when a circle is focused
+unsigned int circleSelected;
+bool highlight;
 
-//This is going to rotate our character, enhancing the animation
-double degrees;
+//Here we are going to handle the selected color of the puzzle
+unsigned int selectedColor;
 
-//This tell us when we need to do the flying(> 0) or falling (< 0) animation and the movement
-double flying;
+//--------------------
+//Starts up SDL and creates window
+bool init();
 
-//Handler of the character's Y position
-int posY;
+//Loads media regardless of the format (png, jpeg, etc.)
+bool loadMedia();
 
-//This is how we handle the spawns of out pipes
-int timingPipe;
-int nextPipe;
-int totalPipe;
+//Frees media and shuts down SDL
+void close();
 
-//Here we are going to save the points
-int points;
+//
+void initCircles(custCircle* circles, unsigned int numCircles = 1);
 
-//This is how we handle the current position of each pipe
-struct Pipe{
-	int xPosition;
-	int freeSpotPosition;
-	bool pointCounted;
-};
+//Restart the game
+void restart ();
 
-Pipe pipes[7];
+//Our hand-made collisionDetector
+bool collisionWithCharacter(int posXObj, int posYObj, int widthObj, int heightObj);
 
 bool init()
 {
@@ -137,13 +152,6 @@ bool init()
 				//Initialize renderer color to WHITE
 				SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
 
-				//Initialize PNG loading
-				int imgFlags = IMG_INIT_PNG;
-				if( !( IMG_Init( imgFlags ) & imgFlags ) )
-				{
-					printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
-					success = false;
-				}
 				   //Initialize SDL_ttf
                 if( TTF_Init() == -1 )
                 {
@@ -179,68 +187,13 @@ bool loadMedia()
             success = false;
         }
     }
-    //This top of our background
-	if (!gSunTexture.loadFromFile("sun.png", gRenderer )){
-        printf("Sorry bro, I have a problem loading \"sun.png\" \n ");
-        success = false;
-	}
-
-    //This is the bottom of our background
-    if (!gFloorTexture.loadFromFile("floor.png", gRenderer)){
-        printf("Sorry bro, I have a problem loading \"floor.png\" \n ");
-        success = false;
-	}
-
-    //This is the pipe texture
-	if (!gPipeTexture.loadFromFile("pipe.png", gRenderer)){
-        printf("Sorry bro, I have a problem loading \"pipe.png\" \n ");
-        success = false;
-	}
-	//This is the final's frame texture
-	if (!gFrameTexture.loadFromFile("frame.png", gRenderer)){
-        printf("Sorry bro, I have a problem loading \"frame.png\" \n ");
-        success = false;
-	}else
-         gFrameTexture.setBlendMode(SDL_BLENDMODE_BLEND);
-
-    //This is the sprite of our character (flying egg). It have 4 square frames
-    if (!( gSpritedMonigote.loadFromFile("spritedPlayer.png", gRenderer))){
-        printf("Sorry bro, I have a problem loading \"spritedPlayer.png\" \n");
-        success = false;
-	} else{
-        gSpriteClips[0].x = 0;
-        gSpriteClips[0].y = 0;
-        gSpriteClips[0].w = 60;
-        gSpriteClips[0].h = 60;
-
-        gSpriteClips[1].x = 60;
-        gSpriteClips[1].y = 0;
-        gSpriteClips[1].w = 60;
-        gSpriteClips[1].h = 60;
-
-        gSpriteClips[2].x = 0;
-        gSpriteClips[2].y = 60;
-        gSpriteClips[2].w = 60;
-        gSpriteClips[2].h = 60;
-
-        gSpriteClips[3].x = 60;
-        gSpriteClips[3].y = 60;
-        gSpriteClips[3].w = 60;
-        gSpriteClips[3].h = 60;
-
-        //This allows us to use transparencies on the character
-        gSpritedMonigote.setBlendMode(SDL_BLENDMODE_BLEND);
-	}
+    
 	return success;
 }
 
 void close()
 {
-	gSunTexture.free();
-	gFloorTexture.free();
-	gPipeTexture.free();
-	gSpritedMonigote.free();
-
+	gTextTextureStart.free();
 	//Destroy window
 	SDL_DestroyRenderer( gRenderer );
 	SDL_DestroyWindow( gWindow );
@@ -248,7 +201,6 @@ void close()
 	gRenderer = NULL;
 
 	//Quit SDL subsystems
-	IMG_Quit();
 	SDL_Quit();
 }
 
@@ -279,6 +231,25 @@ SDL_Texture* loadTexture( std::string path )
 	return newTexture;
 }
 
+
+void initCircles(custCircle* circles, unsigned int numCircles = 1){
+	for (int i = 0; i < numCircles; i++){
+		circles[i].radius = INCREMENTAL_RADIUS * (i+1);
+		unsigned int numPiesTemp = 1 + (INCREMENTAL_PIES * i);
+		circles[i].numPies = numPiesTemp;
+		circles[i].pies = new custPies[numPiesTemp];
+		bool haveSelectedColor = false;
+		for (int j = 0; j < numPiesTemp; j++){
+			circles[i].pie[j].degrees = ((360 / numPiesTemp) * (j+1)) % 360;
+			circles[i].pie[j].color = RANDOM_COLOR;
+			if (circles[i].pie[j].color == selectedColor) haveSelectedColor = true;
+		}
+		if (!haveSelectedColor){
+			circles[i].pie[rand() % numPiesTemp].color = selectedColor;
+		}
+	}
+}
+
 //This reset the data to restart the game
 void restart (){
     //Handler of the points counting
@@ -292,25 +263,11 @@ void restart (){
 
     //This is going to handle the movement
     frame = 0;
-
-    //This is going to rotate our character, enhancing the animation
-    degrees = -45;
-
-    //This tell us when we need to do the flying(> 0) or falling (< 0) animation and the movement
-    flying = MAXIMUN_FRAMES * 4 * 2;
-
-    //Handler of the character's Y position
-    posY = (SCREEN_HEIGHT - 60)/2;
-
-    //This is how we handle the spawns of out pipes
-    timingPipe = MAX_TIME_PIPE;
-    nextPipe = 1;
-    totalPipe = 1;
-
-    //This is how we handle the current position of each pipe
-    pipes[0].xPosition = SCREEN_WIDTH;
-    pipes[0].freeSpotPosition = (rand() % 4) + 1;
-    pipes[0].pointCounted = false;
+	
+    //
+    selectedColor = RANDOM_COLOR;
+    circles = new custonCircle[NUM_CIRCLES];
+    initCircles(circles, NUM_CIRCLES);
     }
 
 //TODO ARREGLAR LA PUTA COLLISION
