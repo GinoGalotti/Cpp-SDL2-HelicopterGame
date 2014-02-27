@@ -64,6 +64,7 @@ struct custCircle {
 	unsigned int radius;
 	unsigned int numPies;	//Number of slots that the circle will have
 	custPie[] pies;		//An array with all the pies inside the circle
+	double degreesRotation; //This is going to save the movement of the circle
 }
 
 //Loads individual image as texture
@@ -88,10 +89,11 @@ custCircle* circles;
 
 //This way we are going to save our circles make the feel when a circle is focused
 unsigned int circleSelected;
-bool highlight;
+bool highlight = false;
 
 //Here we are going to handle the selected color of the puzzle
 unsigned int selectedColor;
+bool wonGame = false;
 
 //--------------------
 //Starts up SDL and creates window
@@ -238,6 +240,7 @@ void initCircles(custCircle* circles, unsigned int numCircles = 1){
 		unsigned int numPiesTemp = 1 + (INCREMENTAL_PIES * i);
 		circles[i].numPies = numPiesTemp;
 		circles[i].pies = new custPies[numPiesTemp];
+		circles[i].degreesRotation = 0;
 		bool haveSelectedColor = false;
 		for (int j = 0; j < numPiesTemp; j++){
 			circles[i].pie[j].degrees = ((360 / numPiesTemp) * (j+1)) % 360;
@@ -247,13 +250,13 @@ void initCircles(custCircle* circles, unsigned int numCircles = 1){
 		if (!haveSelectedColor){
 			circles[i].pie[rand() % numPiesTemp].color = selectedColor;
 		}
+		
 	}
 }
 
 //This reset the data to restart the game
 void restart (){
     //Handler of the points counting
-    points = 0;
     std::stringstream ss;
     ss << points;
     if( !gTextTexturePoints.loadFromRenderedText( "Points: " + ss.str(), textColor, gFont ,gRenderer ) )
@@ -331,10 +334,24 @@ int main( int argc, char* args[] )
                             quit = true;
                             break;
                             
-                            //Our egg is going to fly!!
+                            //We are going to select an outer circle
                             case SDLK_UP:
-                            flying = MAXIMUN_FRAMES * 4 * 2;
-                            degrees = -45;
+                            if (circleSelected < NUM_CIRCLES) circleSelected++;
+                            break;
+                            
+                            //We are going to select an inner circle
+                            case SDLK_DOWN:
+                            if (circleSelected > 0) circleSelected--;
+                            break;
+                            
+                            //We are going to select an outer circle
+                            case SDLK_LEFT:
+                            circles[circleSelected].degreesRotation = (circles[circleSelected].degreesRotation - 1) % 360;
+                            break;
+                            
+                            //We are going to select an inner circle
+                            case SDLK_RIGHT:
+                            circles[circleSelected].degreesRotation = (circles[circleSelected].degreesRotation + 1) % 360;
                             break;
                             
                             //Our game is going to start/restart
@@ -347,7 +364,7 @@ int main( int argc, char* args[] )
                     }
 				}
 
-				if (!pause){
+		if (!pause){
                     SDL_SetRenderDrawColor(gRenderer,0xFF,0xAE,0xC9,0xFF);
 
                     //Clear screen
